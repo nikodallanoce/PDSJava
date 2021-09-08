@@ -1,19 +1,36 @@
 package com.company;
 
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.function.Predicate;
 
 public class Main {
 
     public static void main(String[] args) {
-        List<float[]> points = readPoints("points_test.txt");
-        //List<float[]> points = generatePoints(6);
-        KNN knn = new KNN(points);
+        List<float[]> randCoord = generatePoints(20_000);
+        writePoints(randCoord);
+        List<float[]> points = readPoints("points.txt");
+        KNN seqKNN = new KNN(points);
+        KNN parKNN = new KNNParallel(points, 8);
+        int k = 50;
+
         var start = System.currentTimeMillis();
-        knn.compute(2);
-        System.out.println(System.currentTimeMillis() - start);
+        parKNN.compute(k);
+        //parKNN.writeKNeighbours();
+        var tpar = System.currentTimeMillis() - start;
+        System.out.println("par: " + tpar);
+
+        start = System.currentTimeMillis();
+        seqKNN.compute(k);
+        //seqKNN.writeKNeighbours();
+        var tseq = System.currentTimeMillis() - start;
+        System.out.println("seq: " + tseq);
+        System.out.println("spdup: " + (double) tseq / tpar);
+
+        seqKNN.hasSameNeighbours(parKNN.knn);
     }
 
     public static List<float[]> readPoints(String fileName) {
@@ -42,5 +59,22 @@ public class Main {
 
     private static float randomFloat(Random r, float min, float max) {
         return min + r.nextFloat() * (max - min);
+    }
+
+    private static void writePoints(List<float[]> points) {
+        try {
+            FileWriter myWriter = new FileWriter("points.txt");
+            points.stream().parallel().forEach(coord -> {
+                try {
+                    myWriter.write(coord[0] + "," + coord[1] + "\n");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+            myWriter.close();
+        } catch (IOException e) {
+            System.out.println("An error occurred.");
+            e.printStackTrace();
+        }
     }
 }
